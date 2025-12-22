@@ -6,6 +6,7 @@ def multiply_quaternions(q1, q2):
     w1, x1, y1, z1 = q1
     w2, x2, y2, z2 = q2
     
+    #  Произведение гамильтона
     w = w1*w2 - x1*x2 - y1*y2 - z1*z2
     x = w1*x2 + x1*w2 + y1*z2 - z1*y2
     y = w1*y2 - x1*z2 + y1*w2 + z1*x2
@@ -25,7 +26,6 @@ if __name__ == '__main__':
     q2_ch = Quaternion(w=1, x=0.5, y=0.5, z=0.75)
     result_ch = q1_ch * q2_ch
 
-if __name__=="__main__":
     print(f"Первый кватернион: {q1}")
     print(f"Второй кватернион: {q2}")
     print(f"Умножение кватернионов: {result}")
