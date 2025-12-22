@@ -1,10 +1,100 @@
+from __future__ import annotations
 import numpy as np
-from quaternion import Quaternion
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from dataclasses import dataclass
 import glm
 import math
 
+@dataclass
+class Quaternion:
+    w: float = 1
+    x: float = 0
+    y: float = 0
+    z: float = 0
+
+    @classmethod
+    def axis_angle_to_quat(cls, axis, angle) -> Quaternion:
+        half_angle = angle / 2.0
+        sin_half_angle = np.sin(half_angle)
+
+        w = np.cos(half_angle)
+        x = axis[0] * sin_half_angle
+        y = axis[1] * sin_half_angle
+        z = axis[2] * sin_half_angle
+
+        return cls(w, x, y, z)
+
+    def to_rot_mat(self) -> glm.mat3:
+        return glm.mat3(
+            1 - 2 * self.y ** 2 - 2 * self.z ** 2, 2 * self.x * self.y - 2 * self.z * self.w, 2 * self.x * self.z + 2 * self.y * self.w,
+            2 * self.x * self.y + 2 * self.z * self.w, 1 - 2 * self.x ** 2 - 2 * self.z ** 2, 2 * self.y * self.z - 2 * self.x * self.w,
+            2 * self.x * self.z - 2 * self.y * self.w, 2 * self.y * self.w + 2 * self.x * self.w, 1 - 2 * self.x ** 2 - 2 * self.y ** 2
+        )
+
+
+    def __add__(self, quat: Quaternion) -> Quaternion:
+        return Quaternion(self.w + quat.w, self.x + quat.x, self.y + quat.y, self.z + quat.z)
+
+    def __sub__(self, quat: Quaternion) -> Quaternion:
+        return Quaternion(self.w - quat.w, self.x - quat.x, self.y - quat.y, self.z - quat.z)
+
+    def __mul__(self, other: Quaternion | float) -> Quaternion | float:
+        if isinstance(other, Quaternion):
+            return self.w * other.w + self.x * other.x + self.y * other.y + self.z * other.z
+        return Quaternion(self.w * other, self.x * other, self.y * other, self.z * other)
+
+    def __truediv__(self, other: float) -> Quaternion:
+        return Quaternion(self.w / other, self.x / other, self.y / other, self.z / other)
+
+    def __neg__(self) -> Quaternion:
+        return Quaternion(-self.w, -self.x, -self.y, -self.z)
+
+    def __matmul__(self, q: Quaternion) -> Quaternion:
+        return Quaternion(
+            self.w * q.w - self.x * q.x - self.y * q.y - self.z * q.z,
+            self.w * q.x + self.x * q.w + self.y * q.z - self.z * q.y,
+            self.w * q.y - self.x * q.z + self.y * q.w + self.z * q.x,
+            self.w * q.z + self.x * q.y - self.y * q.x + self.z * q.w
+        )
+
+    def rotate(self, vector: glm.vec3) -> glm.vec3:
+        vector_quat = Quaternion(0, *vector)
+        rotated_quat = self @ vector_quat @ self.inv
+        return glm.vec3(rotated_quat.x, rotated_quat.y, rotated_quat.z)
+
+    @property
+    def conj(self) -> Quaternion:
+        return Quaternion(self.w, -self.x, -self.y, -self.z)
+
+    @property
+    def norm(self) -> float:
+        return np.sqrt(self.w ** 2 + self.x ** 2 + self.y ** 2 + self.z ** 2)
+
+    @property
+    def inv(self) -> Quaternion:
+        return self.conj * (1 / (self.norm ** 2))
+
+    def quat_slerp(self, other: Quaternion, t: float) -> Quaternion:
+        dot = np.clip(self * other, -1, 1) # Скалярное произведение 
+        if dot < 0:
+            dot = -dot
+            other = -other
+        omega = np.arccos(dot)
+        sin_omega = np.sin(omega)
+        scale_self = np.sin((1 - t) * omega) / sin_omega
+        scale_other = np.sin(t * omega) / sin_omega
+        return self * scale_self + other * scale_other
+
+    def normalize(self) -> Quaternion:
+        norm = self.norm
+        return Quaternion(self.w / norm, self.x / norm, self.y / norm, self.z / norm)
+
+    def __iter__(self):
+        return iter((self.w, self.x, self.y, self.z))
+
+    def __repr__(self) -> str:
+        return f"Quaternion(w={self.w:.4f}, x={self.x:.4f}, y={self.y:.4f}, z={self.z:.4f})"
 
 task1_input = (
     ((-0.1457, 0.5976, -0.7884), 3.5112),
@@ -55,13 +145,13 @@ task3_input = (
 
 
 def task1():
-    print("Task 1: Преобразовать ось-угол в кватернион")
+    print("Задание 1: Преобразовать ось и угол в кватернион")
     for axis, angle in task1_input:
-        print(Quaternion.from_axis_angle(axis, angle))
+        print(Quaternion.axis_angle_to_quat(axis, angle))
 
 
 def task2():
-    print("Task 2: Преобразовать кватернион в матрицу поворота")
+    print("Задание 2: Преобразовать кватернион в матрицу поворота")
     for quat in task2_input:
         print(Quaternion(*quat).to_rot_mat(), end="\n\n")
 
@@ -101,7 +191,7 @@ def task3():
         [0, -1, 0],
         [0, 0, 1]
     )
-    print("Task 3: Преобразовать матрицы в ось-угол")
+    print("Задание 3: Преобразовать матрицы в ось-угол")
     for mat in task3_input:
         print(mat_to_axis_angle(mat))
     print(f"R1: {mat_to_axis_angle(R1)}")  # Должно быть (NaN, NaN, NaN), 0.0
@@ -116,17 +206,13 @@ def random_axis_angle():
     return axis, angle
 
 
-def task4():
-    print("Task 4 slerp")
-    inter_steps = 10
+def task4(inter_steps):
+    print("Задание 4; реализация slerp")
     axis1, angle1 = random_axis_angle()
     axis2, angle2 = random_axis_angle()
 
-    q1 = Quaternion.from_axis_angle(axis1, angle1)
-    q2 = Quaternion.from_axis_angle(axis2, angle2)
-
-    # q1 = Quaternion(1, 0, 0, 0)
-    # q2 = Quaternion(0, 0, 1, 1).normalize()
+    q1 = Quaternion.axis_angle_to_quat(axis1, angle1)
+    q2 = Quaternion.axis_angle_to_quat(axis2, angle2)
 
     print(f"Quaternion 1: {q1}")
     print(f"Quaternion 2: {q2}\n")
@@ -137,9 +223,14 @@ def task4():
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
+    ax.plot([0, 2], [0, 0], [0, 0], 'r', label='X', alpha=0.5)
+    ax.plot([0, 0], [0, 2], [0, 0], 'g', label='Y', alpha=0.5)
+    ax.plot([0, 0], [0, 0], [0, 2], 'b', label='Z', alpha=0.5)
+    ax.scatter([0], [0], [0], c='k', marker='o') # Начало координат
+
     for i in range(inter_steps + 1):
         t = i / inter_steps
-        interpolated_quat = q1.slerp(q2, t)
+        interpolated_quat = q1.quat_slerp(q2, t)
         rotated_vector = interpolated_quat.rotate(vector)
         ax.quiver(*origin, *rotated_vector, color='r', label='Rotated Vector')
         print(f"t={t:.2f}: {interpolated_quat}")
@@ -154,4 +245,4 @@ if __name__ == "__main__":
     task1()
     task2()
     task3()
-    task4()
+    task4(5)
