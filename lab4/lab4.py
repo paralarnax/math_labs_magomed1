@@ -3,37 +3,35 @@ from sympy import Symbol, nsolve
 import sympy as sp
 
 
-def get_matrix(link_length_a, link_twist_alpha, link_offset_d, joint_angle_theta):
-    try:
-        a = float(link_length_a)
-        alpha = float(link_twist_alpha)
-        d = float(link_offset_d)
-        theta = float(joint_angle_theta)
+def DH_matrix(link_length_a, link_twist_alpha, link_offset_d, joint_angle_theta):
+    a = float(link_length_a)
+    alpha = float(link_twist_alpha)
+    d = float(link_offset_d)
+    theta = float(joint_angle_theta)
+    T = np.array([
+        [np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
+        [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
+        [0, np.sin(alpha), np.cos(alpha), d],
+        [0, 0, 0, 1]
+    ])
+    T = np.round(T, 3)
+    return T
 
-        T = np.array([
-            [np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
-            [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
-            [0, np.sin(alpha), np.cos(alpha), d],
-            [0, 0, 0, 1]
-        ])
-
-        T = np.round(T, 3)
-
-        return T
-
-    except (TypeError, ValueError):
-        print("Ne chisla")
-        return None
 
 def RPR_FK(O1, d2, O3):
     a = 10
     b = 5
 
-    T0 = get_matrix(0, 0, 0, 0)
-    T01 = get_matrix(0, -3 * np.pi / 4, a, O1)
-    T12 = get_matrix(0, -np.pi / 2, d2, -np.pi / 2)
-    T23 = get_matrix(0, np.pi / 2, 0, O3 + np.pi / 4)
-    T34 = get_matrix(0, 0, b, np.pi / 2)
+    # Получаем матрицы преобразования по параметрам денавита хартенберга
+    # длина звена
+    # скручивание звена
+    # смещение вдоль шарнира
+    # угол поворота шарнира
+    T0 = DH_matrix(0, 0, 0, 0)
+    T01 = DH_matrix(0, -3 * np.pi / 4, a, O1)
+    T12 = DH_matrix(0, -np.pi / 2, d2, -np.pi / 2)
+    T23 = DH_matrix(0, np.pi / 2, 0, O3 + np.pi / 4)
+    T34 = DH_matrix(0, 0, b, np.pi / 2)
 
     T = [T0, T01, T12, T23, T34]
 
@@ -66,23 +64,6 @@ def RPR_IK(x, y, z, R03):
     d2 = Symbol('d2')
     O3 = Symbol('O3')
 
-    '''
-    определение матрицы поворота 
-    R = [cos(θ) - sin(θ)n_x*n_y - sin(θ)n_x*n_z  sin(θ)n_y*n_x + cos(θ) - sin(θ)n_y*n_z  sin(θ)n_z*n_x + sin(θ)n_y*n_z  cos(θ)]
-
-    R03[0, 0] = cos(O1)
-    R03[1, 0] = sin(O1)
-    R03[2, 0] = 0
-   
-    R03[0, 1] = -sin(O1) * cos(O3) + cos(O1) * sin(O3) * sin(np.pi/4)
-    R03[1, 1] = cos(O1) * cos(O3) + sin(O1) * sin(O3) * sin(np.pi/4)
-    R03[2, 1] = sin(O3) * cos(np.pi/4) + cos(O3) * sin(np.pi/4)
-   
-    R03[0, 2] = sin(O1) * sin(O3) + cos(O1) * cos(O3) * sin(np.pi/4)
-    R03[1, 2] = -cos(O1) * sin(O3) + sin(O1) * cos(O3) * sin(np.pi/4)
-    R03[2, 2] = cos(O3) * cos(np.pi/4) - sin(O3) * sin(np.pi/4)
-    '''
-
     f1 = sp.cos(O1) - R03[0, 0]
     f2 = sp.sin(O1) - R03[1, 0]
     f3 = R03[2, 0]
@@ -112,27 +93,20 @@ def RPR_IK(x, y, z, R03):
 
 
 if __name__=="__main__":
-    print("task1 part1. Zero pos: 0 5 0")
+    print("Задание 1 для нулевого положения: 0 5 0")
     pos, R = RPR_FK(0, 5, 0)
-    print("pos:\n", pos, "\n R:\n", R)
+    print("Матрица координат:\n", pos, "\n Матрица поворота:\n", R)
 
-    print("task1 part2. Not zero pos: pi -10 -pi/2")
+    print("Задание 1 для положения: pi -10 -pi/2")
     pos, R = RPR_FK(np.pi, -10, np.pi/2)
-    print("pos:\n", pos, "\n R:\n", R)
+    print("Матрица координат:\n", pos, "\n Матрица поворота:\n", R)
 
-    print("task2 part1")
+    print("Задание 2")
     ik_sol = RPR_IK(*pos[-1], R)
 
     if not ik_sol:
         exit('Incorrect input for RPR_IK')
 
     pos_ik, R_ik = RPR_FK(*ik_sol)
-    print('pos_ik\n', pos_ik[-1])
-    print('pos\n', pos[-1])
-
-
-
-
-
-
-
+    print('pos_ik\n', round(float(pos_ik[-1][0]),2), round(float(pos_ik[-1][1]),2), round(float(pos_ik[-1][2]),2))
+    print('pos_ik\n', round(float(pos[-1][0]),2), round(float(pos[-1][1]),2), round(float(pos[-1][2]),2))
